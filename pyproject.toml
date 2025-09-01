@@ -12,6 +12,7 @@ authors = [{name = "Ross Burns"}]
 
 dependencies = [
     "pydantic>=2.7",
+    "sqlalchemy>=2.0",
 ]
 
 [project.optional-dependencies]
