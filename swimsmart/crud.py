@@ -53,11 +53,24 @@ def add_set(session_id: int, data: SetCreate, *, db: Optional[Session] = None) -
 def session_stats(ts: TrainingSession) -> dict:
     sets = ts.sets or []
     total_sets = len(sets)
-    total_distance_m = sum(s.distance_m*s.reps for s in sets)
-    total_reps = sum(s.reps for s in sets)
+    total_distance_m = 0
+    for s in sets:
+        total_distance_m += s.distance_m * s.reps
+    total_reps = 0
+    for s in sets:
+        total_reps += s.reps
 
-    all_rpe = [x for s in sets for x in (s.rpe or [])]
-    all_times = [x for s in sets for x in (s.rep_times_sec or [])]
+    all_rpe: list[float] = []
+    for s in sets:
+        rpes = s.rpe or []
+        for x in rpes:
+            all_rpe.append(x)
+    
+    all_times: list[float] = []
+    for s in sets:
+        times = s.rep_times_sec or []
+        for x in times:
+            all_times.append(x)
 
     avg_rpe = round(sum(all_rpe) / len(all_rpe), 2) if all_rpe else None
     avg_rep_time_sec = round(sum(all_times) / len(all_times), 2) if all_times else None
@@ -84,8 +97,9 @@ def get_session_detail(session_id: int,*,db: Optional[Session] = None,) -> dict:
             raise ValueError(f"TrainingSession id={session_id} not found")
 
         totals = session_stats(ts)
-        sets_payload = [
-            {
+        sets_payload: list[dict] = []
+        for s in ts.sets:    
+            item = {
                 "id": s.id,
                 "distance_m": s.distance_m,
                 "reps": s.reps,
@@ -94,8 +108,7 @@ def get_session_detail(session_id: int,*,db: Optional[Session] = None,) -> dict:
                 "rpe": list(s.rpe or []),
                 "rep_times_sec": list(s.rep_times_sec or []),
             }
-            for s in ts.sets
-        ]
+            sets_payload.append(item)
 
         return {
             "id": ts.id,
