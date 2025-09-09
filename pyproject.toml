@@ -13,12 +13,20 @@ authors = [{name = "Ross Burns"}]
 dependencies = [
     "pydantic>=2.7",
     "sqlalchemy>=2.0",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "passlib[bcrypt]>=1.7",  
+    "PyJWT>=2.8",  
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
+    "httpx>=0.27",
 ]
+
+[tool.setuptools]
+packages = { find = { where = ["."], include = ["swimsmart*"] } }
 
 [tool.pytest.ini_options]
 minversion = "8.0"
