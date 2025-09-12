@@ -1,8 +1,8 @@
 from .db import Base
-from sqlalchemy import Integer, String, Text, Date, JSON, ForeignKey
+from sqlalchemy import Column,Integer, String, Text, Date, JSON, ForeignKey, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import datetime as dt
-
+import enum
 class TrainingSession(Base):
     __tablename__ = "sessions"
 
@@ -11,7 +11,8 @@ class TrainingSession(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     sets: Mapped[list["Set"]] = relationship( back_populates="session", cascade= "all, delete-orphan")
-
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    user = relationship("User", back_populates="sessions")
 class Set(Base):
     __tablename__ = "sets"
 
@@ -25,3 +26,16 @@ class Set(Base):
     rep_times_sec: Mapped[list[int]] = mapped_column(JSON, nullable=False)
 
     session: Mapped["TrainingSession"] = relationship(back_populates="sets")
+
+class UserRole(str, enum.Enum):
+    coach = "coach"
+    swimmer = "swimmer"
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    role = Column(Enum(UserRole), nullable=False, default=UserRole.swimmer)
+
+    sessions = relationship("TrainingSession", back_populates="user")

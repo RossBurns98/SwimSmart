@@ -1,5 +1,6 @@
 import datetime
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator, EmailStr
+from typing import Literal
 
 class SessionCreate(BaseModel):
     """Schema for new swim session creation.
@@ -54,3 +55,12 @@ class SetCreate(BaseModel):
         if self.reps != len(self.rep_times_sec):
             raise ValueError(f"Expected {self.reps} rep time inputs, got {len(self.rep_times_sec)}.")
         return self
+    
+class Signup(BaseModel):
+    email: EmailStr
+    password: str
+    role: Literal["coach", "swimmer"] = "swimmer"
+
+class Login(BaseModel):
+    email: EmailStr
+    password: str
