@@ -7,16 +7,18 @@ from sqlalchemy import select # queries
 from sqlalchemy.orm import Session, selectinload #queries
 
 from .db import SessionLocal # Session management
-from .models import TrainingSession, Set # ORM models
+from .models import TrainingSession, Set, User, UserRole # ORM models
 from .schemas import SetCreate # for validation before inserting (pydantic)
 from . import services
 
 # creating function and args, * here just means db must be passed as a keyword, returns TrainingSession
-def create_session(session_date: dt.date, notes: Optional[str] = None, *, db: Optional[Session] = None,) -> TrainingSession:
+def create_session(session_date: dt.date, notes: Optional[str] = None, *, user_id: Optional[int] = None,db: Optional[Session] = None,) -> TrainingSession:
     owns_session = db is None
     db = db or SessionLocal() # either makes a db or uses passed one
     try:
-        ts = TrainingSession(date=session_date, notes=notes)
+        ts = TrainingSession(date=session_date,
+                            notes=notes,
+                            user_id = user_id)
         db.add(ts) # puts in session
         db.commit() # writes row and finalises
         db.refresh(ts) # refreshes
@@ -168,7 +170,7 @@ def fetch_session_with_sets(session_id: int, *, db: Optional[Session] = None) ->
         if owns:
             db.close()
 
-def fetch_sessions_in_range(start_date: dt.date, end_date: dt.date, *, db: Optional[Session] = None) -> list[TrainingSession]:
+def fetch_sessions_in_range(start_date: dt.date, end_date: dt.date, *, user_id: Optional[int] = None, db: Optional[Session] = None) -> list[TrainingSession]:
     """
     Load all session in range start_date to end_date inclusive, sets are eager-loaded.
     """
@@ -182,6 +184,10 @@ def fetch_sessions_in_range(start_date: dt.date, end_date: dt.date, *, db: Optio
             .where(TrainingSession.date <= end_date)
             .order_by(TrainingSession.date.asc(), TrainingSession.id.asc())
         )
+        
+        if user_id is not None:
+            q = q.where(TrainingSession.user_id == user_id)
+        
         return db.execute(q).scalars().all()
     finally:
         if owns:
@@ -218,20 +224,20 @@ def get_session_analytics(session_id: int, pace_per_m: int = 100, *, db: Optiona
         if owns:
             db.close()
 
-def summarise_sessions(start_date: dt.date, end_date: dt.date, pace_per_m: int = 100, *, db:Optional[Session] = None) -> dict:
+def summarise_sessions(start_date: dt.date, end_date: dt.date, pace_per_m: int = 100, *, user_id: Optional[int] = None, db:Optional[Session] = None) -> dict:
     """
     Aggregate analytics across a date range
     """
     owns = db is None
     db = db or SessionLocal()
     try:
-        sessions = fetch_sessions_in_range(start_date, end_date, db=db)
+        sessions = fetch_sessions_in_range(start_date, end_date, user_id=user_id, db=db)
         return services.sessions_summary(sessions, pace_per_m=pace_per_m)
     finally:
         if owns:
             db.close()
 
-def list_sessions_with_summaries(limit: Optional[int] = None, pace_per_m: int = 100, *, db: Optional[Session] = None) -> list[dict]:
+def list_sessions_with_summaries(limit: Optional[int] = None, pace_per_m: int = 100, *,user_id: Optional[int] = None, db: Optional[Session] = None) -> list[dict]:
     """
     Returns a compact list of session metrics ready to use in a dashboard.
     Only top level, session stats, doesn't include details per set.
@@ -244,6 +250,10 @@ def list_sessions_with_summaries(limit: Optional[int] = None, pace_per_m: int = 
             .options(selectinload(TrainingSession.sets))
             .order_by(TrainingSession.date.desc(), TrainingSession.id.desc())
         )
+
+        if user_id is not None:
+            q = q.where(TrainingSession.user_id == user_id)
+
         if limit:
             q = q.limit(limit)
 
@@ -262,6 +272,146 @@ def list_sessions_with_summaries(limit: Optional[int] = None, pace_per_m: int = 
                 "avg_pace_formatted": ssum["avg_pace_formatted"],
             })
         return out
+    finally:
+        if owns:
+            db.close()
+
+def fetch_user_by_session_id(user_id: int, session_id: int, *, db: Optional[Session] = None) -> Optional[TrainingSession]:
+    """
+    Fetch a single session, ensuring it belongs to a user.
+    Return none if not found or doesn't belong to swimmer.
+    """
+    owns = db is None
+    db = db or SessionLocal()
+    try:
+        q = (
+            select(TrainingSession)
+            .options(selectinload(TrainingSession.sets))
+            .where(TrainingSession.id == session_id)
+            .where(TrainingSession.user_id == user_id)
+        )
+        return db.execute(q).scalars().first()
+    finally:
+        if owns:
+            db.close()
+
+def list_sessions_with_summaries_for_user(
+        user_id: int,
+        limit: Optional[int] = None,
+        pace_per_m: int = 100,
+        *,
+        db: Optional[Session] = None
+) -> dict:
+    """
+    Returns dashboard summaries for one swimmer sessions.
+    same idea as list_sessions_with_summaries, just owner specific
+    """
+    owns = db is None
+    db = db or SessionLocal()
+    try:
+        q = (
+            select(TrainingSession)
+            .options(selectinload(TrainingSession.sets))
+            .where(TrainingSession.user_id == user_id)
+            .order_by(TrainingSession.date.desc(), TrainingSession.id.desc())    
+        )
+        if limit:
+            q = q.limit(limit)
+        
+        rows = db.execute(q).scalars().all()
+        out: list[dict] = []
+        for ts in rows:
+            ssum = services.session_summary(ts, pace_per_m=pace_per_m)
+            item = {
+                "id": ts.id,
+                "date": ts.date.isoformat(),
+                "notes": ts.notes,
+                "total_distance_m": ssum["total_distance_m"],
+                "avg_rpe": ssum["avg_rpe"],
+                "avg_pace_sec_per": ssum["avg_pace_sec_per"],
+                "pace_basis_m": ssum["pace_basis_m"],
+                "avg_pace_formatted": ssum["avg_pace_formatted"],
+            }
+            out.append(item)
+        return out
+    finally:
+        if owns:
+            db.close()
+        
+def summarise_user_sessions_in_range(
+        user_id: int,
+        start_date: dt.date,
+        end_date: dt.date,
+        pace_per_m: int = 100,
+        *,
+        db: Optional[Session] = None
+) -> dict:
+    """
+    Ana;ytics for one swimmer across date range
+    """
+    owns = db is None
+    db = db or SessionLocal()
+    try:
+        q = (
+            select(TrainingSession)
+            .options(selectinload(TrainingSession.sets))
+            .where(TrainingSession.user_id == user_id)
+            .where(TrainingSession.date >= start_date)
+            .where(TrainingSession.date <= end_date)
+            .order_by(TrainingSession.date.asc(), TrainingSession.id.asc())
+        )
+        sessions = db.execute(q).scalars().all()
+        return services.session_summary(sessions, pace_per_m=pace_per_m)
+    finally:
+        if owns:
+            db.close()
+
+def team_leaderboard_by_distance(
+        start_date: dt.date,
+        end_date: dt.date,
+        pace_per_m: int = 100,
+        *,
+        db: Optional[Session] = None
+) -> list[dict]:
+    """
+    Builds leaderboard of swimmers ordered by total distance
+    """
+    owns = db is None
+    db = db or SessionLocal()
+    try:
+        #grab all swimmers
+        swimmers = db.query(User).filter(User.role == UserRole.swimmer),all()
+
+        #compute range totals for all swimmers
+        rows: list[dict] = []
+        for u in swimmers:
+            totals = summarise_user_sessions_in_range(
+                user_id=u.id,
+                start_date=start_date,
+                end_date=end_date,
+                pace_per_m=pace_per_m,
+                db=db
+            )
+            item = {
+                "user_id": u.id,
+                "email": u.email,
+                "totals": totals
+            }
+            rows.append(item)
+        
+        #sort by total distance in descending order
+        def total_distance(row: dict) -> float:
+            totals = row.get("totals") or {}
+            val = totals.get("total_distance_m")
+            if val is None:
+                return 0.0
+            try:
+                return float(val)
+            except Exception:
+                return 0.0
+
+        rows.sort(key=total_distance, reverse=True)
+        return rows
     finally:
         if owns:
             db.close()

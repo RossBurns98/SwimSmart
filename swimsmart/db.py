@@ -1,12 +1,23 @@
-from contextlib import contextmanager
+import os
+from typing import Iterator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
 
 # Tell SQLAlchemy to use SQLite, also to keep file locally and call it swimsmart.db
 # splite:/// the triple slash means relative to current wkdir
-DATABASE_URL = "sqlite:///swimsmart.db"
+DATABASE_URL = os.getenv("SWIMSMART_DATABASE_URL","sqlite:///swimsmart.db")
 
-# Create engine app uses to talk to DB, future = True enables SQLAlchemy 2.0 style 
+connect_args = {}
+if DATABASE_URL.startswith("sqlite"):
+    connect_args = {"check_same_thread": False}
+
+engine = create_engine(
+    DATABASE_URL,
+    future=True,
+    pool_pre_ping=True,
+    connect_args=connect_args
+)
+
 engine = create_engine(DATABASE_URL, future=True)
 
 #Defining Base class for models to inherit
@@ -21,10 +32,9 @@ SessionLocal = sessionmaker(bind=engine, autoflush= False, expire_on_commit= Fal
 def init_db() -> None:
     """Create all tables based on Base metadata"""
     from . import models
-    Base.metadata.create_all(engine)
+    Base.metadata.create_all(bind=engine)
 
-@contextmanager
-def get_db() -> Session:
+def get_db() -> Iterator[Session]:
     """Open a DB session for use inside a with block.
     Session closes automatically when block ends."""
     db = SessionLocal() # Open a session

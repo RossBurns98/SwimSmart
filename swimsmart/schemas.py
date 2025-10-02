@@ -2,6 +2,8 @@ import datetime
 from pydantic import BaseModel, Field, field_validator, model_validator, EmailStr
 from typing import Literal
 
+ALLOWED_STROKES = {"free", "fly", "back", "breast", "im"}
+
 class SessionCreate(BaseModel):
     """Schema for new swim session creation.
     
@@ -13,7 +15,7 @@ class SessionCreate(BaseModel):
     # : sets type hint, = attaches Pydantic's Field()
     date: datetime.date = Field(..., description="Calendar date of the session (YYYY-MM-DD).")
     # str | None means is either string or nothing
-    notes: str | None = Field(None, description="Optional Session Descriptor")
+    notes: str | None = Field(None, description="Optional Session Descriptor", max_length=2000)
 
 class SetCreate(BaseModel):
     """Schema for new set creation
@@ -29,6 +31,22 @@ class SetCreate(BaseModel):
     stroke: str = Field(..., description="What stroke was done during this set? (Free, Fly, Back, Breast, IM)")
     #list of rep time, will add validation to ensure number of reps = no. of rpe = no. of rep times
     rep_times_sec: list[int] = Field(..., description="List of times per rep in seconds")
+
+    @field_validator("stroke")
+    @classmethod
+    def normalise_and_validate_stroke(cls, v: str) -> str:
+        """
+        Enforces lowercase on stroke inputs to save the hassle later on.
+        Also ensures that stoke is one of:
+        {'free','fly', 'back', 'breast', 'im'}
+        """
+        if v is None:
+            raise ValueError("Stroke is required.")
+        value = str(v).strip().lower()
+        if value not in ALLOWED_STROKES:
+            allowed_str = ", ".join(sorted(ALLOWED_STROKES))
+            raise ValueError(f"stoke must be one of: {allowed_str}")
+        return value
 
     @field_validator("rpe")
     @classmethod
