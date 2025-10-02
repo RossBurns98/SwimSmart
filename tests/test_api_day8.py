@@ -1,11 +1,12 @@
 # tests/test_api_day8.py
 import datetime as dt
 from fastapi.testclient import TestClient
-
 from swimsmart.api.main import create_app
+from swimsmart.api.deps import get_db
+from swimsmart.api.authz import get_current_user
+from swimsmart.models import User, UserRole
 from swimsmart import crud
 from swimsmart.schemas import SetCreate
-from swimsmart.api.deps import get_db
 
 def _make_client_with_db(db_session):
     app = create_app()
@@ -18,6 +19,20 @@ def _make_client_with_db(db_session):
 
     app.dependency_overrides[get_db] = _override_get_db
     return TestClient(app)
+
+def _ensure_user(db, email: str, role: UserRole) -> User:
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        user = User(email=email, password_hash="x", role=role)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    return user
+
+def _auth_as(client: TestClient, db, email: str, role: UserRole) -> User:
+    user = _ensure_user(db, email, role)
+    client.app.dependency_overrides[get_current_user] = lambda: user
+    return user
 
 def _seed(db, date):
     sid = crud.create_session(date, notes=f"seed {date.isoformat()}", db=db).id
@@ -37,8 +52,9 @@ def test_list_sessions_dashboard(db_session):
     _seed(db_session, dt.date(2025, 1, 1))
     _seed(db_session, dt.date(2025, 1, 2))
 
-    app = create_app()
     client = _make_client_with_db(db_session)
+    # Any authenticated role is fine for listing
+    _auth_as(client, db_session, email="viewer@example.com", role=UserRole.swimmer)
 
     r = client.get("/sessions?limit=10&pace_per_m=100")
     assert r.status_code == 200
@@ -55,8 +71,8 @@ def test_summarise_sessions_range(db_session):
     _seed(db_session, dt.date(2025, 1, 1))
     _seed(db_session, dt.date(2025, 1, 2))
 
-    app = create_app()
     client = _make_client_with_db(db_session)
+    _auth_as(client, db_session, email="viewer2@example.com", role=UserRole.swimmer)
 
     r = client.get("/sessions/range/summary?start=2025-01-01&end=2025-01-02&pace_per_m=100")
     assert r.status_code == 200
@@ -71,8 +87,8 @@ def test_list_sessions_in_range_with_summary(db_session):
     _seed(db_session, dt.date(2025, 1, 1))
     _seed(db_session, dt.date(2025, 1, 2))
 
-    app = create_app()
     client = _make_client_with_db(db_session)
+    _auth_as(client, db_session, email="viewer3@example.com", role=UserRole.swimmer)
 
     r = client.get("/sessions/range?start=2025-01-01&end=2025-01-02&pace_per_m=100")
     assert r.status_code == 200
@@ -87,8 +103,8 @@ def test_list_sessions_in_range_with_summary(db_session):
     assert s["avg_pace_formatted"] == "1:18.14"
 
 def test_bad_range_returns_400(db_session):
-    app = create_app()
     client = _make_client_with_db(db_session)
+    _auth_as(client, db_session, email="viewer4@example.com", role=UserRole.swimmer)
 
     r = client.get("/sessions/range/summary?start=2025-01-02&end=2025-01-01")
     assert r.status_code == 400
