@@ -1,7 +1,7 @@
 # SwimSmart Tracker
 
-SwimSmart Tracker is a training log and performance insight tool built for swimmers and coaches.
-The goal of this project is to provide a structured way to record swim sessions, track performance data, and analyze progress over time.
+SwimSmart Tracker is a training log and performance insight tool for swimmers and coaches.  
+It provides a structured way to record swim sessions, track performance data, and analyze progress over time.
 
 ---
 
@@ -14,33 +14,53 @@ The goal of this project is to provide a structured way to record swim sessions,
 
 ---
 
-## Planned Features
-
-- **Session Logging** – Record sets, distances, times, and RPE.
-- **Custom Set Structures** – Support flexible formats (e.g., `20 × 100m freestyle`).
-- **Performance Tracking** – Capture rep times, session summaries, and pace trends.
-- **Coach Dashboard** – Allow coaches to view athlete logs and performance insights.
-- **Notes & Annotations** – Add notes at the rep or set level.
-- **Templates** – Save and reuse common set structures.
-- **CSV Export** – Export training data for further analysis.
-- **Role-Based Access** – Distinguish between swimmer and coach accounts.
+## Why it matters
+- Swimmers can log sets, times, distances, and Rate of Perceived Exertion (RPE).
+- Coaches can review training trends and workloads across their squad.
+- Both can export CSVs and use dashboards to turn raw training into insights.
 
 ---
 
-## Tech Stack (Planned)
-
-- **Frontend**: React with TailwindCSS
-- **Backend**: FastAPI (Python)
-- **Database**: PostgreSQL (SQLAlchemy ORM)
-- **Authentication**: JWT-based system
-- **Deployment**: Docker + cloud hosting (future)
+## Features
+- Session logging: sets, distances, times, and RPE.
+- Custom set structures (e.g. `20 × 100m freestyle`).
+- Performance tracking with summaries and pace trends.
+- Coach dashboard to view and monitor athletes.
+- Notes and annotations at rep or set level.
+- Templates for reusing common set structures.
+- CSV export for external analysis.
+- Role-based access (swimmer vs. coach).
 
 ---
 
-## Current Status
+## Tech Stack
+- Backend: FastAPI (Python), PostgreSQL (SQLAlchemy ORM), JWT auth
+- Frontend (planned): React + TailwindCSS, shadcn/ui, Recharts
+- Deployment: Docker for local development, cloud hosting later
 
-This project is in the **early development phase**.
-Implementation will follow a phased approach, starting with session logging and CSV export, then expanding to dashboards, templates, and role-based access.
+---
+
+## Setup
+1. Clone the repository.  
+2. Copy `.env.sample` to `.env` and update with real values.  
+3. Build and run with Docker:  
+   ```bash
+   docker compose build
+   docker compose up -d
+4. Access API docs at: http://localhost:8000/docs
+
+---
+
+## Seeding Demo Data
+Run inside the API container:
+    ```bash
+    docker compose exec api python scripts/seed_demo.py
+
+---
+
+## Tests
+
+Run in pytest -q in terminal.
 
 ---
 
