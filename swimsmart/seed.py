@@ -39,6 +39,7 @@ def ensure_coach(db: Session, email: str) -> User:
             email=email,
             password_hash=hash_password("changeme"),
             role=UserRole.coach,
+            username=email.split("@")[0]
         )
         db.add(user)
         db.commit()
@@ -47,7 +48,11 @@ def ensure_coach(db: Session, email: str) -> User:
         # ensure coach role
         if user.role != UserRole.coach:
             user.role = UserRole.coach
-            db.commit()          # <-- was missing parentheses
+            db.commit()          
+            db.refresh(user)
+        if not user.username:
+            user.username = email.split("@")[0]
+            db.commit()
             db.refresh(user)
     return user
 
@@ -65,6 +70,7 @@ def create_swimmers(db: Session, count: int) -> list[User]:
                 email=email,
                 password_hash=hash_password("changeme"),
                 role=UserRole.swimmer,
+                username=f"swimmer{i+1}"
             )
             db.add(u)
             db.commit()
@@ -73,6 +79,10 @@ def create_swimmers(db: Session, count: int) -> list[User]:
         else:
             if existing.role != UserRole.swimmer:
                 existing.role = UserRole.swimmer
+                db.commit()
+                db.refresh(existing)
+            if not existing.username:
+                existing.username = f"swimmer{i+1}"
                 db.commit()
                 db.refresh(existing)
             swimmers.append(existing)

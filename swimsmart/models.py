@@ -33,6 +33,7 @@ class UserRole(str, enum.Enum):
 
 class User(Base):
     __tablename__ = "users"
+    username = Column(String, unique=True, index=True, nullable=False)
     id = Column(Integer, primary_key=True)
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)

@@ -41,7 +41,7 @@ def list_swimmers(db: Session = Depends(get_db)) -> list[dict]:
     rows = db.query(User).filter(User.role == UserRole.swimmer).all()
     out: list[dict] = []
     for u in rows:
-        item = {"id": u.id, "email": u.email}
+        item = {"id": u.id, "email": u.email, "username": u.username}
         out.append(item)
     return out
 
@@ -156,6 +156,7 @@ def coach_overview(
         entry = {
             "id": u.id,
             "email": u.email,
+            "username": u.username,
             "recent_sessions": recent,
         }
         out_swimmers.append(entry)

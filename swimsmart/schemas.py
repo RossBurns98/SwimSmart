@@ -1,6 +1,6 @@
 import datetime
 from pydantic import BaseModel, Field, field_validator, model_validator, EmailStr
-from typing import Literal
+from typing import Literal, Optional
 
 ALLOWED_STROKES = {"free", "fly", "back", "breast", "im"}
 
@@ -78,7 +78,8 @@ class Signup(BaseModel):
     email: EmailStr
     password: str
     role: Literal["coach", "swimmer"] = "swimmer"
+    username: Optional[str] = None
 
 class Login(BaseModel):
-    email: EmailStr
+    identifier: str
     password: str
