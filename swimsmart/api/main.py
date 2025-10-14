@@ -66,10 +66,10 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],   # env-configurable; defaults to ["*"]
+        allow_origins=["https://swimsmart.netlify.app/login"],   # env-configurable; defaults to ["*"]
         allow_methods=["*"],
         allow_headers=["*"],
-        allow_credentials=False,
+        allow_credentials=True,
     )
 
     register_exception_handlers(app)
