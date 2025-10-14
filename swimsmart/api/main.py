@@ -69,7 +69,7 @@ def create_app() -> FastAPI:
         allow_origins=["https://swimsmart.netlify.app/login"],   # env-configurable; defaults to ["*"]
         allow_methods=["*"],
         allow_headers=["*"],
-        allow_credentials=True,
+        allow_credentials=False,
     )
 
     register_exception_handlers(app)
